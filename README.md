@@ -15,6 +15,8 @@ That's it! Download what you need :)
 
 ## Supported Kramerius instances
 * -> ndk.cz
+* -> Moravská zemská knihovna
+## Considered support for:
 * -> kramerius.lib.cas.cz
 
 
