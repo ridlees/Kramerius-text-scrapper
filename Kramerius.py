@@ -28,13 +28,21 @@ Optional:
 """)
 
 def get_uuid(link):
-    return link.split("/")[4].split("?")[0]
+    root = link.split("/")[4].split("?")[0]
+    if root == "view":
+        root = link.split("/")[5].split("?")[0]
+    return root
 
 def get_root_url(link):
     return link.split("/")[2]
 
 def get_PIDS(session, URL, root_pid):
     try:
+        if URL == "www.digitalniknihovna.cz":
+                response = session.get("https://kramerius.mzk.cz/search/api/v5.0/search?q=root_pid:" + escape(root_pid)+" AND document_type:page&fl=PID&rows=9999999&wt=json", stream=True)
+                return response.json().get("response").get("docs")
+        if URL == "kramerius.lib.cas.cz":
+                print("Not Supported!")
         response = session.get("https://" + URL + "/search/api/v5.0/search?q=root_pid:" + escape(root_pid)+" AND document_type:page&fl=PID&rows=9999999&wt=json", stream=True)
         return response.json().get("response").get("docs")
     except Exception as e:
@@ -50,6 +58,9 @@ def get_text(session, PIDobjects,URL):
                 text = text + page.text
             if URL == "kramerius.lib.cas.cz":
                 page = session.get(f"https://ndk.cz/search/api/v5.0/item/{PID}/ocr/text")
+                text = text + page.text
+            if URL == "www.digitalniknihovna.cz":
+                page = session.get(f"https://api.kramerius.mzk.cz/search/api/client/v7.0/items/{PID}/ocr/text")
                 text = text + page.text
         return text
     except Exception as e:
@@ -73,9 +84,8 @@ def main():
 
         if o_index + 1 < len(sys.argv):
             output_file = sys.argv[o_index + 1]
-        else:
-            output_file = "output.txt"
     else:
+        output_file = "output.txt"
         link = sys.argv[1] 
 
     root_pid = get_uuid(link)
