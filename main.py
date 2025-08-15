@@ -79,9 +79,8 @@ def main():
         link = sys.argv[1] 
 
     root_pid = get_uuid(link)
-    print(root_pid)
     URL = get_root_url(link)
-    print(URL)
+    print("Your download has started, don't turn off the process")
     session = r.Session()
     PIDobjects = get_PIDS(session, URL, root_pid)
     text = get_text(session, PIDobjects,URL)
