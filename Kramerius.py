@@ -1,12 +1,4 @@
 #!/usr/bin/env python3
-"""
-Example CLI script template with sys.argv flag parsing.
-
-Usage:
-    Kramerius.py --help
-    Kramerius.py https://ndk.cz/view/uuid:a837aec0-8c99-11de-9ad9-000d606f5dc6?page=uuid:4841aa90-e1b6-11e7-8cdd-5ef3fc9bb22f --o [specifies the output] 
-"""
-
 import sys
 import requests as r
 import time
@@ -26,6 +18,7 @@ Options:
 
 Optional:
     --o [specifies the output file]
+    --c continuation on given uuid, saves to "output_continueation.txt"
 """)
 
 def get_uuid(link):
@@ -70,6 +63,25 @@ def get_text(session, PIDobjects,URL):
         print(f"Error in downloading OCR pages on {PID} - {e}")
         return text
 
+def continue_download(uuid, link, output_file):
+    try:
+            root_pid = get_uuid(link)
+            URL = get_root_url(link)
+            print("Continuing the download, don't turn off the process")
+            session = r.Session()
+            PIDobjects = get_PIDS(session, URL, root_pid)
+            if PIDobjects == []:
+                    print("The API couln't get the PIDs")
+            start_index = next(i for i, obj in enumerate(PIDobjects) if obj["PID"] == uuid)
+            text = get_text(session, PIDobjects[start_index:len(PIDobjects)],URL)
+            with open(output_file, "w") as file:
+                file.write(text)
+
+            print(f"The OCR for {root_pid} is saved in {output_file}")
+    except Exception as e:
+        print(f"Error in continuation - {e}")
+
+      
 
 
 def main():
@@ -90,8 +102,15 @@ def main():
             output_file = sys.argv[o_index + 1]
     else:
         output_file = "output.txt"
-        link = sys.argv[1] 
+        link = sys.argv[1]
 
+    if "--c" in sys.argv:
+        output_file = "output_continueation.txt"
+        c_index = sys.argv.index("--c")
+        if c_index + 1 < len(sys.argv):
+            uuid = sys.argv[c_index + 1]
+            continue_download(uuid, link, output_file)
+            sys.exit(1)
     root_pid = get_uuid(link)
     URL = get_root_url(link)
     print("Your download has started, don't turn off the process")
@@ -104,7 +123,7 @@ def main():
         file.write(text)
 
     print(f"The OCR for {root_pid} is saved in {output_file}")
-
+        
 
 if __name__ == "__main__":
     main()
