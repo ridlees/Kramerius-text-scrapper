@@ -9,6 +9,7 @@ Usage:
 
 import sys
 import requests as r
+import time
 
 def escape(uuid:str) -> str:
 	return uuid.replace(':','\:').replace('-','\-')
@@ -38,11 +39,12 @@ def get_root_url(link):
 
 def get_PIDS(session, URL, root_pid):
     try:
+        if URL == "kramerius.lib.cas.cz":
+                print("Not Supported! - The API is forbidden")
+                return []
         if URL == "www.digitalniknihovna.cz":
                 response = session.get("https://kramerius.mzk.cz/search/api/v5.0/search?q=root_pid:" + escape(root_pid)+" AND document_type:page&fl=PID&rows=9999999&wt=json", stream=True)
                 return response.json().get("response").get("docs")
-        if URL == "kramerius.lib.cas.cz":
-                print("Not Supported!")
         response = session.get("https://" + URL + "/search/api/v5.0/search?q=root_pid:" + escape(root_pid)+" AND document_type:page&fl=PID&rows=9999999&wt=json", stream=True)
         return response.json().get("response").get("docs")
     except Exception as e:
@@ -53,18 +55,20 @@ def get_text(session, PIDobjects,URL):
         text = ""
         for PIDobject in PIDobjects:
             PID = PIDobject.get("PID")
+            time.sleep(1)
             if URL == "ndk.cz":
-                page = session.get(f"https://ndk.cz/search/api/v5.0/item/{PID}/streams/TEXT_OCR")
+                page = session.get(f"https://ndk.cz/search/api/v5.0/item/{PID}/streams/TEXT_OCR", timeout=(40,200))
                 text = text + page.text
             if URL == "kramerius.lib.cas.cz":
-                page = session.get(f"https://ndk.cz/search/api/v5.0/item/{PID}/ocr/text")
+                page = session.get(f"https://kramerius.lib.cas.cz/search/api/v5.0/item/{PID}/ocr/text", timeout=(40,200))
                 text = text + page.text
             if URL == "www.digitalniknihovna.cz":
-                page = session.get(f"https://api.kramerius.mzk.cz/search/api/client/v7.0/items/{PID}/ocr/text")
+                page = session.get(f"https://api.kramerius.mzk.cz/search/api/client/v7.0/items/{PID}/ocr/text", timeout=(40,200))
                 text = text + page.text
         return text
     except Exception as e:
-        print(f"Error in downloading OCR pages - {e}")
+        print(f"Error in downloading OCR pages on {PID} - {e}")
+        return text
 
 
 
@@ -93,6 +97,8 @@ def main():
     print("Your download has started, don't turn off the process")
     session = r.Session()
     PIDobjects = get_PIDS(session, URL, root_pid)
+    if PIDobjects == []:
+            print("The API couln't get the PIDs")
     text = get_text(session, PIDobjects,URL)
     with open(output_file, "w") as file:
         file.write(text)
