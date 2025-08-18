@@ -2,6 +2,11 @@
 import sys
 import requests as r
 import time
+from dotenv import load_dotenv
+import os
+
+cookie_value = os.getenv("cookieValue")
+cookie_name =os.getenv("cookieName")
 
 def escape(uuid:str) -> str:
 	return uuid.replace(':','\:').replace('-','\-')
@@ -20,6 +25,11 @@ Optional:
     --o [specifies the output file]
     --c continuation on given uuid, saves to "output_continueation.txt"
 """)
+def set_cookies(session):
+        
+        session.cookies.set(cookie_name, cookie_value)
+
+        return session
 
 def get_uuid(link):
     root = link.split("/")[4].split("?")[0]
@@ -38,27 +48,31 @@ def get_PIDS(session, URL, root_pid):
         if URL == "www.digitalniknihovna.cz":
                 response = session.get("https://kramerius.mzk.cz/search/api/v5.0/search?q=root_pid:" + escape(root_pid)+" AND document_type:page&fl=PID&rows=9999999&wt=json", stream=True)
                 return response.json().get("response").get("docs")
-        response = session.get("https://" + URL + "/search/api/v5.0/search?q=root_pid:" + escape(root_pid)+" AND document_type:page&fl=PID&rows=9999999&wt=json", stream=True)
+        response = session.get("https://" + URL + "/search/api/v5.0/search?q=root_pid:" + escape(root_pid)+" AND document_type:page&fl=PID&rows=999999999&wt=json", stream=True)
         return response.json().get("response").get("docs")
     except Exception as e:
         print(f"Error in getting PIDs - {e}")
 
 def get_text(session, PIDobjects,URL):
     try:
-        text = ""
+        print("Downloading totally: " + str(len(PIDobjects)) + " pages")
+        i = 1
+        all_texts = []
         for PIDobject in PIDobjects:
             PID = PIDobject.get("PID")
+            print(i)
             time.sleep(1)
             if URL == "ndk.cz":
                 page = session.get(f"https://ndk.cz/search/api/v5.0/item/{PID}/streams/TEXT_OCR", timeout=(40,200))
-                text = text + page.text
+                all_texts.append(page.text)
             if URL == "kramerius.lib.cas.cz":
                 page = session.get(f"https://kramerius.lib.cas.cz/search/api/v5.0/item/{PID}/ocr/text", timeout=(40,200))
-                text = text + page.text
+                all_texts.append(page.text)
             if URL == "www.digitalniknihovna.cz":
                 page = session.get(f"https://api.kramerius.mzk.cz/search/api/client/v7.0/items/{PID}/ocr/text", timeout=(40,200))
-                text = text + page.text
-        return text
+                all_texts.append(page.text)
+            i= i + 1
+        return "\n".join(all_texts)
     except Exception as e:
         print(f"Error in downloading OCR pages on {PID} - {e}")
         return text
@@ -69,6 +83,7 @@ def continue_download(uuid, link, output_file):
             URL = get_root_url(link)
             print("Continuing the download, don't turn off the process")
             session = r.Session()
+            session = set_cookies(session)
             PIDobjects = get_PIDS(session, URL, root_pid)
             if PIDobjects == []:
                     print("The API couln't get the PIDs")
@@ -115,6 +130,7 @@ def main():
     URL = get_root_url(link)
     print("Your download has started, don't turn off the process")
     session = r.Session()
+    session = set_cookies(session)
     PIDobjects = get_PIDS(session, URL, root_pid)
     if PIDobjects == []:
             print("The API couln't get the PIDs")
