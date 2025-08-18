@@ -1,6 +1,6 @@
 # Kramerius OCR getter
 
-Just get the OCR from a book hosted at the Kramerius site. Experimental, Kramerius doesn't work half of the time :(
+Just get the OCR from a book hosted at the Kramerius site. Experimental, Kramerius doesn't work half of the time 😿
 
 ## Requirements
 
