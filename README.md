@@ -2,6 +2,10 @@
 
 Just get the OCR from a book hosted at the Kramerius site. Experimental, Kramerius doesn't work half of the time :(
 
+## Requirements
+
+1. pip install -r requirements.txt
+
 ## Usage
 
 1. Download the Kramerius.py
