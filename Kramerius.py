@@ -4,6 +4,7 @@ import requests as r
 import time
 from dotenv import load_dotenv
 import os
+import re
 
 cookie_value = os.getenv("cookieValue")
 cookie_name =os.getenv("cookieName")
@@ -40,16 +41,33 @@ def get_uuid(link):
 def get_root_url(link):
     return link.split("/")[2]
 
+def extract_page_number(detail):
+    if not detail:
+        return float('inf')
+
+    if isinstance(detail, list):
+        detail = detail[0]
+
+    match = re.search(r'\[?(\d+)\]?', detail)
+    if match:
+        return int(match.group(1))
+    else:
+        return float('inf')        
+
 def get_PIDS(session, URL, root_pid):
     try:
         if URL == "kramerius.lib.cas.cz":
                 print("Not Supported! - The API is forbidden")
                 return []
         if URL == "www.digitalniknihovna.cz":
-                response = session.get("https://kramerius.mzk.cz/search/api/v5.0/search?q=root_pid:" + escape(root_pid)+" AND document_type:page&fl=PID&rows=9999999&wt=json", stream=True)
-                return response.json().get("response").get("docs")
-        response = session.get("https://" + URL + "/search/api/v5.0/search?q=root_pid:" + escape(root_pid)+" AND document_type:page&fl=PID&rows=999999999&wt=json", stream=True)
-        return response.json().get("response").get("docs")
+                response = session.get("https://kramerius.mzk.cz/search/api/v5.0/search?q=root_pid:" + escape(root_pid)+" AND document_type:page&fl=PID,details&rows=9999999&wt=json", stream=True)
+                docs = response.json().get("response").get("docs")
+                docs.sort(key=lambda doc: extract_page_number(doc.get("details")))
+                return docs
+        response = session.get("https://" + URL + "/search/api/v5.0/search?q=root_pid:" + escape(root_pid)+" AND document_type:page&fl=PID,details&rows=999999999&wt=json", stream=True)
+        docs = response.json().get("response").get("docs")
+        docs.sort(key=lambda doc: extract_page_number(doc.get("details")))
+        return docs
     except Exception as e:
         print(f"Error in getting PIDs - {e}")
 
