@@ -40,5 +40,11 @@ That's it! Download what you need :)
 ## Considered support for:
 * -> kramerius.lib.cas.cz
 
+### Experimental
+
+If you have gTTS downloaded (pip install gTTS), you can use the TTS.py to generate "quick" audiobook for your file. 
+
+1. Simply call TTS.py "nameofyourfile.txt" and in a few minutes (takes some time) you will have a listenable file.
+
 
 LMK if anything breaks
