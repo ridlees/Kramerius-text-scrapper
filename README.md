@@ -26,7 +26,7 @@ _I don't know how long the cookie persist. Needs more testing_
 
 1. Download the Kramerius.py
 2. Make it exacutable with chmod +x Kramerius.py
-3. Run ./Kramerius.py "Link to your book"
+![3. Run ./Kramerius.py "Link to your book"](./img1.png)
 
 You can specify the output file with --o flag
 
