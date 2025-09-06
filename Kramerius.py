@@ -59,6 +59,13 @@ def get_PIDS(session, URL, root_pid):
         if URL == "kramerius.lib.cas.cz":
                 print("Not Supported! - The API is forbidden")
                 return []
+        if URL == "https://kramerius.rozhlas.cz":
+                return []
+                #Doesn't work
+                response = session.get("https://kramerius.rozhlas.cz/search/api/v7.0/search?q=root_pid:" + escape(root_pid)+" AND document_type:page&fl=PID,details&rows=9999999&wt=json", stream=True)
+                docs = response.json().get("response").get("docs")
+                docs.sort(key=lambda doc: extract_page_number(doc.get("details")))
+                return docs
         if URL == "www.digitalniknihovna.cz":
                 response = session.get("https://kramerius.mzk.cz/search/api/v5.0/search?q=root_pid:" + escape(root_pid)+" AND document_type:page&fl=PID,details&rows=9999999&wt=json", stream=True)
                 docs = response.json().get("response").get("docs")
@@ -83,6 +90,8 @@ def get_text(session, PIDobjects,URL):
             if URL == "ndk.cz":
                 page = session.get(f"https://ndk.cz/search/api/v5.0/item/{PID}/streams/TEXT_OCR", timeout=(40,200))
                 all_texts.append(page.text)
+            if URL == "https://kramerius.rozhlas.cz":
+                page = session.get(f"https://kramerius.rozhlas.cz/search/api/client/v7.0/items/{PID}/ocr/text", timeout=(40,200))
             if URL == "kramerius.lib.cas.cz":
                 page = session.get(f"https://kramerius.lib.cas.cz/search/api/v5.0/item/{PID}/ocr/text", timeout=(40,200))
                 all_texts.append(page.text)
