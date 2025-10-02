@@ -8,6 +8,12 @@ import re
 
 cookie_value = os.getenv("cookieValue")
 cookie_name =os.getenv("cookieName")
+JSessionIDValue = os.getenv("JSESSIONVALUE")
+GA1Name = os.getenv("GA1Name")
+GA1Value = os.getenv("GA1Value")
+GA = os.getenv("GA")
+GA2Name = os.getenv("GA2Name")
+GA2Value = os.getenv("GA2Value")
 
 def escape(uuid:str) -> str:
 	return uuid.replace(':','\:').replace('-','\-')
@@ -27,9 +33,20 @@ Optional:
     --c continuation on given uuid, saves to "output_continueation.txt"
 """)
 def set_cookies(session):
-        
-        session.cookies.set(cookie_name, cookie_value)
 
+        session.headers.update({
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.5",
+    "Referer": "https://ndk.cz/",
+    "Connection": "keep-alive",
+
+})
+        session.cookies.set(name=cookie_name, value=cookie_value, domain="ndk.cz")
+        session.cookies.set(name=GA1Name, value=GA1Value)
+        session.cookies.set(name="_ga", value=GA)
+        session.cookies.set(name=GA2Name, value=GA2Value)
+        session.cookies.set("JSESSIONID",JSessionIDValue, domain="ndk.cz")
         return session
 
 def get_uuid(link):
@@ -90,6 +107,9 @@ def get_text(session, PIDobjects,URL):
             if URL == "ndk.cz":
                 page = session.get(f"https://ndk.cz/search/api/v5.0/item/{PID}/streams/TEXT_OCR", timeout=(40,200))
                 all_texts.append(page.text)
+                if page.status_code == 403:
+                        print("Not authorised to download this book")
+                        break
             if URL == "https://kramerius.rozhlas.cz":
                 page = session.get(f"https://kramerius.rozhlas.cz/search/api/client/v7.0/items/{PID}/ocr/text", timeout=(40,200))
             if URL == "kramerius.lib.cas.cz":
@@ -102,7 +122,7 @@ def get_text(session, PIDobjects,URL):
         return "\n".join(all_texts)
     except Exception as e:
         print(f"Error in downloading OCR pages on {PID} - {e}")
-        return text
+        return "\n".join(all_texts)
 
 def continue_download(uuid, link, output_file):
     try:
