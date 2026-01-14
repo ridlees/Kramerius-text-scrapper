@@ -14,6 +14,8 @@ GA1Value = os.getenv("GA1Value")
 GA = os.getenv("GA")
 GA2Name = os.getenv("GA2Name")
 GA2Value = os.getenv("GA2Value")
+_gat = os.getenv("_gat")
+_gid = os.getenv("_gid")
 
 def escape(uuid:str) -> str:
 	return uuid.replace(':','\:').replace('-','\-')
@@ -47,6 +49,9 @@ def set_cookies(session):
         session.cookies.set(name="_ga", value=GA)
         session.cookies.set(name=GA2Name, value=GA2Value)
         session.cookies.set("JSESSIONID",JSessionIDValue, domain="ndk.cz")
+        session.cookies.set("_gat",_gat, domain="ndk.cz")
+        session.cookies.set("_gid",_gid, domain="ndk.cz")
+        session.headers.update({"Authorization": ""})
         return session
 
 def get_uuid(link):
@@ -78,7 +83,6 @@ def get_PIDS(session, URL, root_pid):
                 return []
         if URL == "https://kramerius.rozhlas.cz":
                 return []
-                #Doesn't work
                 response = session.get("https://kramerius.rozhlas.cz/search/api/v7.0/search?q=root_pid:" + escape(root_pid)+" AND document_type:page&fl=PID,details&rows=9999999&wt=json", stream=True)
                 docs = response.json().get("response").get("docs")
                 docs.sort(key=lambda doc: extract_page_number(doc.get("details")))
@@ -115,9 +119,15 @@ def get_text(session, PIDobjects,URL):
             if URL == "kramerius.lib.cas.cz":
                 page = session.get(f"https://kramerius.lib.cas.cz/search/api/v5.0/item/{PID}/ocr/text", timeout=(40,200))
                 all_texts.append(page.text)
+                if page.status_code == 403:
+                        print("Not authorised to download this book")
+                        break
             if URL == "www.digitalniknihovna.cz":
                 page = session.get(f"https://api.kramerius.mzk.cz/search/api/client/v7.0/items/{PID}/ocr/text", timeout=(40,200))
                 all_texts.append(page.text)
+                if page.status_code == 403:
+                        print("Not authorised to download this book")
+                        break
             i= i + 1
         return "\n".join(all_texts)
     except Exception as e:
