@@ -21,7 +21,6 @@ def save(image_folder="./temp", output="./output.pdf"):
         f.write(img2pdf.convert(images))
 
     print(f"PDF created: {output}")
-    """
+    
     for image in images:
         os.remove(image)
-    """

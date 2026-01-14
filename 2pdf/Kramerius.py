@@ -88,26 +88,26 @@ def extract_page_number_mzv(detail):
 
 def extract_page_number(detail):
     if not detail:
-        return (float('inf'), '')  # empty goes last
+        return (float('inf'), 1, '')  # empty goes last
 
-    # if it's a list, take the first element
     if isinstance(detail, list):
         detail = detail[0]
 
-    # remove brackets
     detail = detail.strip('[]').replace(" ", "")
 
-    # handle multi-page ranges: take first number
     first_part = re.split(r'[,;-]', detail)[0]
 
-    # split number and optional letters
     match = re.match(r'(\d+)([a-zA-Z]*)', first_part)
     if match:
         number_part = int(match.group(1))
         letter_part = match.group(2)
-        return (number_part, letter_part)
+
+        # 0 = has letter (comes first), 1 = no letter (comes later)
+        no_letter_flag = 0 if letter_part else 1
+
+        return (number_part, no_letter_flag, letter_part)
     else:
-        return (float('inf'), '') 
+        return (float('inf'), 1, '')
 
 def get_PIDS(session, URL, root_pid):
     try:
@@ -126,13 +126,18 @@ def get_PIDS(session, URL, root_pid):
         
         if URL == "www.digitalniknihovna.cz":
                 response = session.get("https://kramerius.mzk.cz/search/api/v5.0/search?q=root_pid:" + escape(root_pid)+" AND document_type:page&fl=PID,details&rows=9999999&wt=json", stream=True)
-                print(response.content)
                 docs = response.json().get("response").get("docs")
+                if docs == []:
+                        response = session.get("https://kramerius.mzk.cz/search/api/v5.0/search?q=parent_pid:" + escape(root_pid)+" AND document_type:page&fl=PID,details&rows=9999999&wt=json", stream=True)
+                        docs = response.json().get("response").get("docs")    
                 docs.sort(key=lambda doc: extract_page_number_mzv(doc.get("details")))
                 return docs
         
         response = session.get("https://" + URL + "/search/api/v5.0/search?q=root_pid:" + escape(root_pid)+" AND document_type:page&fl=PID,details&rows=999999999&wt=json", stream=True)
         docs = response.json().get("response").get("docs")
+        if docs == []:
+                response = session.get("https://" + URL + "/search/api/v5.0/search?q=parent_pid:" + escape(root_pid)+" AND document_type:page&fl=PID,details&rows=999999999&wt=json", stream=True)
+                docs = response.json().get("response").get("docs")
         docs.sort(key=lambda doc: extract_page_number(doc.get("details")))
         return docs
 
