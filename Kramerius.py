@@ -123,12 +123,12 @@ def get_PIDS(session, URL, root_pid):
                 return docs
 
         if URL == "www.digitalniknihovna.cz":
-                response = session.get("https://api.kramerius.mzk.cz/search/api/client/v7.0/search?q=root.pid:" + escape(root_pid)+" AND model:page&fl=pid,details&rows=9999999&wt=json", stream=True)
+                response = session.get("https://api.kramerius.mzk.cz/search/api/client/v7.0/search?q=root.pid:" + escape(root_pid)+" AND model:page&fl=pid,details,page.number&rows=9999999&wt=json", stream=True)
                 docs = response.json().get("response").get("docs")
                 if docs == []:
-                        response = session.get("https://api.kramerius.mzk.cz/search/api/client/v7.0/search?q=parent.pid:" + escape(root_pid)+" AND model:page&fl=pid,details&rows=9999999&wt=json", stream=True)
+                        response = session.get("https://api.kramerius.mzk.cz/search/api/client/v7.0/search?q=parent.pid:" + escape(root_pid)+" AND model:page&fl=pid,details,page.number&rows=9999999&wt=json", stream=True)
                         docs = response.json().get("response").get("docs")    
-                docs.sort(key=lambda doc: extract_page_number_mzv(doc.get("details")))
+                docs.sort(key=lambda doc: extract_page_number_mzv(doc.get("page.number")))
                 return docs
 
         response = session.get("https://" + URL + "/search/api/v5.0/search?q=root_pid:" + escape(root_pid)+" AND document_type:page&fl=PID,details&rows=999999999&wt=json", stream=True)
@@ -147,7 +147,10 @@ def get_pages(session, PIDobjects,URL, folder="./temp"):
                 i = 1
 
                 for PIDobject in PIDobjects:
-                     PID = PIDobject.get("PID")
+                     PID = PIDobject.get("PID") 
+                     if PID == None:
+                         PID = PIDobject.get("pid") 
+
                      print(i)
                      time.sleep(1)
                      if URL == "www.digitalniknihovna.cz":
