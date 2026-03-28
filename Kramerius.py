@@ -5,6 +5,7 @@ import time
 from dotenv import load_dotenv
 import os
 import re
+import ToPDF
 
 cookie_value = os.getenv("cookieValue")
 cookie_name =os.getenv("cookieName")
@@ -63,18 +64,50 @@ def get_uuid(link):
 def get_root_url(link):
     return link.split("/")[2]
 
+def extract_page_number_mzv(detail):
+    if not detail:
+        return (float('inf'), '')  # use tuple for sorting
+
+    # if it's a list, take the first element
+    if isinstance(detail, list):
+        detail = detail[0]
+
+    # remove surrounding brackets if any
+    detail = detail.strip('[]')
+
+    # split into number and optional letters
+    match = re.match(r'(\d+)([a-zA-Z]*)', detail)
+    if match:
+        number_part = int(match.group(1))
+        letter_part = match.group(2)
+        # lettered entries should come before pure numbers
+        # we can invert logic by using empty string as larger than letters
+        return (number_part, letter_part)
+    else:
+        return (float('inf'), '')
+
 def extract_page_number(detail):
     if not detail:
-        return float('inf')
+        return (float('inf'), 1, '')  # empty goes last
 
     if isinstance(detail, list):
         detail = detail[0]
 
-    match = re.search(r'\[?(\d+)\]?', detail)
+    detail = detail.strip('[]').replace(" ", "")
+
+    first_part = re.split(r'[,;-]', detail)[0]
+
+    match = re.match(r'(\d+)([a-zA-Z]*)', first_part)
     if match:
-        return int(match.group(1))
+        number_part = int(match.group(1))
+        letter_part = match.group(2)
+
+        # 0 = has letter (comes first), 1 = no letter (comes later)
+        no_letter_flag = 0 if letter_part else 1
+
+        return (number_part, no_letter_flag, letter_part)
     else:
-        return float('inf')        
+        return (float('inf'), 1, '')      
 
 def get_PIDS(session, URL, root_pid):
     try:
@@ -82,19 +115,22 @@ def get_PIDS(session, URL, root_pid):
                 print("Not Supported! - The API is forbidden")
                 return []
         if URL == "https://kramerius.rozhlas.cz":
+                print("Not Supported! - The API is forbidden")
                 return []
                 response = session.get("https://kramerius.rozhlas.cz/search/api/v7.0/search?q=root_pid:" + escape(root_pid)+" AND document_type:page&fl=PID,details&rows=9999999&wt=json", stream=True)
                 docs = response.json().get("response").get("docs")    
                 docs.sort(key=lambda doc: extract_page_number(doc.get("details")))
                 return docs
+
         if URL == "www.digitalniknihovna.cz":
-                response = session.get("https://kramerius.mzk.cz/search/api/v5.0/search?q=root_pid:" + escape(root_pid)+" AND document_type:page&fl=PID,details&rows=9999999&wt=json", stream=True)
+                response = session.get("https://api.kramerius.mzk.cz/search/api/client/v7.0/search?q=root.pid:" + escape(root_pid)+" AND model:page&fl=pid,details&rows=9999999&wt=json", stream=True)
                 docs = response.json().get("response").get("docs")
-                if docs == []: # Then it is periodical
-                        response = session.get("https://kramerius.mzk.cz/search/api/v5.0/search?q=parent_pid:" + escape(root_pid)+" AND document_type:page&fl=PID,details&rows=9999999&wt=json", stream=True)
-                        docs = response.json().get("response").get("docs")
-                docs.sort(key=lambda doc: extract_page_number(doc.get("details")))
+                if docs == []:
+                        response = session.get("https://api.kramerius.mzk.cz/search/api/client/v7.0/search?q=parent.pid:" + escape(root_pid)+" AND model:page&fl=pid,details&rows=9999999&wt=json", stream=True)
+                        docs = response.json().get("response").get("docs")    
+                docs.sort(key=lambda doc: extract_page_number_mzv(doc.get("details")))
                 return docs
+
         response = session.get("https://" + URL + "/search/api/v5.0/search?q=root_pid:" + escape(root_pid)+" AND document_type:page&fl=PID,details&rows=999999999&wt=json", stream=True)
         docs = response.json().get("response").get("docs")
         if docs == []:
@@ -105,25 +141,47 @@ def get_PIDS(session, URL, root_pid):
     except Exception as e:
         print(f"Error in getting PIDs - {e}")
 
+def get_pages(session, PIDobjects,URL, folder="./temp"):
+        try:
+                print("Downloading totally: " + str(len(PIDobjects)) + " pages")
+                i = 1
+
+                for PIDobject in PIDobjects:
+                     PID = PIDobject.get("PID")
+                     print(i)
+                     time.sleep(1)
+                     if URL == "www.digitalniknihovna.cz":
+                        url = f"https://api.kramerius.mzk.cz/search/iiif/{PID}/full/max/0/default.jpg"
+                     if URL == "ndk.cz":
+                        url = f"https://kramerius5.nkp.cz/pdf/download/?id={PID}"
+
+                     with session.get(url, stream=True, timeout=(40,200)) as r:
+                        r.raise_for_status()
+                        with open(f"{folder}/{i}.jpeg", "wb") as f:
+                                for chunk in r.iter_content(chunk_size=8192):
+                                        if chunk:
+                                                f.write(chunk)
+                     i = i + 1
+        
+        except Exception as e:
+                print(f"Error in downloading OCR pages on {PID} - {e}")
+
+
 def get_text(session, PIDobjects,URL):
+    
     try:
         print("Downloading totally: " + str(len(PIDobjects)) + " pages")
         i = 1
         all_texts = []
         for PIDobject in PIDobjects:
-            PID = PIDobject.get("PID")
+            PID = PIDobject.get("PID") 
+            if PID == None:
+                PID = PIDobject.get("pid") 
+            
             print(i)
             time.sleep(1)
             if URL == "ndk.cz":
                 page = session.get(f"https://ndk.cz/search/api/v5.0/item/{PID}/streams/TEXT_OCR", timeout=(40,200))
-                all_texts.append(page.text)
-                if page.status_code == 403:
-                        print("Not authorised to download this book")
-                        break
-            if URL == "https://kramerius.rozhlas.cz":
-                page = session.get(f"https://kramerius.rozhlas.cz/search/api/client/v7.0/items/{PID}/ocr/text", timeout=(40,200))
-            if URL == "kramerius.lib.cas.cz":
-                page = session.get(f"https://kramerius.lib.cas.cz/search/api/v5.0/item/{PID}/ocr/text", timeout=(40,200))
                 all_texts.append(page.text)
                 if page.status_code == 403:
                         print("Not authorised to download this book")
@@ -167,42 +225,65 @@ def main():
         show_help()
         sys.exit(1)
 
-    if "--o" in sys.argv:
-        o_index = sys.argv.index("--o")
+    if "-o" in sys.argv:
+        o_index = sys.argv.index("-o")
 
         if o_index >= 2:
             link = sys.argv[1]
         else:
-            print("Error: Missing link before --o")
+            print("Error: Missing link before -o")
             sys.exit(1)
 
         if o_index + 1 < len(sys.argv):
             output_file = sys.argv[o_index + 1]
     else:
-        output_file = "output.txt"
+        output_file = "output"
         link = sys.argv[1]
 
-    if "--c" in sys.argv:
-        output_file = "output_continueation.txt"
-        c_index = sys.argv.index("--c")
+    if "-f" in sys.argv:
+        f_index = sys.argv.index("-f")
+        if f_index + 1 < len(sys.argv):
+            filetype = sys.argv[f_index + 1]
+    else:
+        filetype = "txt"
+
+    if "-c" in sys.argv:
+        output_file = "output_conti"
+        c_index = sys.argv.index("-c")
         if c_index + 1 < len(sys.argv):
-            uuid = sys.argv[c_index + 1]
-            continue_download(uuid, link, output_file)
-            sys.exit(1)
+            if filetype == "txt":
+                output_file = output_file + ".txt"
+                uuid = sys.argv[c_index + 1]
+                continue_download(uuid, link, output_file)
+                sys.exit(1)
+            if filetype == "pdf":
+                output_file = output_file + ".pdf"
+                uuid = sys.argv[c_index + 1]
+                continue_download(uuid, link, output_file)
+                sys.exit(1)
+
     root_pid = get_uuid(link)
     URL = get_root_url(link)
     print("Your download has started, don't turn off the process")
     session = r.Session()
     session = set_cookies(session)
+    print(root_pid, URL)
     PIDobjects = get_PIDS(session, URL, root_pid)
     if PIDobjects == []:
             print("The API couln't get the PIDs")
-    text = get_text(session, PIDobjects,URL)
-    with open(output_file, "w") as file:
-        file.write(text)
-
-    print(f"The OCR for {root_pid} is saved in {output_file}")
-        
+            sys.exit(1)
+    if filetype == "txt":
+        output_file = output_file + ".txt"
+        text = get_text(session, PIDobjects,URL)
+        with open(output_file, "w") as file:
+            file.write(text)
+            print(f"The OCR for {root_pid} is saved in {output_file}")
+    if filetype == "pdf":
+        output_file = output_file + ".pdf"
+        get_pages(session, PIDobjects, URL)
+        print("Images downloaded, now joining into pdf")
+        ToPDF.save(output=output_file)
+        print(f"The Images for {root_pid} is saved in {output_file}")
 
 if __name__ == "__main__":
     main()

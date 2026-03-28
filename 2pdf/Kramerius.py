@@ -41,7 +41,8 @@ def set_cookies(session):
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     "Accept-Language": "en-US,en;q=0.5",
-    "Referer": "https://ndk.cz/",
+    "Origin": "https://kramerius.mzk.cz",
+    "Referer": "https://kramerius.mzk.cz/",
     "Connection": "keep-alive",
 
 })
@@ -125,12 +126,14 @@ def get_PIDS(session, URL, root_pid):
         
         
         if URL == "www.digitalniknihovna.cz":
-                response = session.get("https://kramerius.mzk.cz/search/api/v5.0/search?q=root_pid:" + escape(root_pid)+" AND document_type:page&fl=PID,details&rows=9999999&wt=json", stream=True)
+                ""
+                response = session.get("https://api.kramerius.mzk.cz/search/api/client/v7.0/search?q=root.pid:" + escape(root_pid)+" AND model:page&fl=pid,details&rows=9999999&wt=json", stream=True)
                 docs = response.json().get("response").get("docs")
                 if docs == []:
-                        response = session.get("https://kramerius.mzk.cz/search/api/v5.0/search?q=parent_pid:" + escape(root_pid)+" AND document_type:page&fl=PID,details&rows=9999999&wt=json", stream=True)
+                        response = session.get("https://api.kramerius.mzk.cz/search/api/client/v7.0/search?q=parent.pid:" + escape(root_pid)+" AND model:page&fl=pid,details&rows=9999999&wt=json", stream=True)
                         docs = response.json().get("response").get("docs")    
                 docs.sort(key=lambda doc: extract_page_number_mzv(doc.get("details")))
+                print(docs)
                 return docs
         
         response = session.get("https://" + URL + "/search/api/v5.0/search?q=root_pid:" + escape(root_pid)+" AND document_type:page&fl=PID,details&rows=999999999&wt=json", stream=True)
@@ -150,7 +153,7 @@ def get_pages(session, PIDobjects,URL, folder="./temp"):
                 i = 1
 
                 for PIDobject in PIDobjects:
-                     PID = PIDobject.get("PID")
+                     PID = PIDobject.get("pid")
                      print(i)
                      time.sleep(1)
                      if URL == "www.digitalniknihovna.cz":
